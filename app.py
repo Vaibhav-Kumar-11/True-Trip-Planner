@@ -9,6 +9,14 @@ load_dotenv()
 from langgraph.types import Command
 from graph import build_graph
 
+
+def esc(text) -> str:
+    """Streamlit's markdown renderer treats '$...$' as LaTeX. Any free-form text that
+    might contain a dollar amount (LLM-generated summaries/descriptions) needs this
+    before going into st.write/st.caption/st.warning/st.info."""
+    return str(text).replace("$", "\\$")
+
+
 st.set_page_config(page_title="The True Trip Planner", layout="wide")
 st.title("The True Trip Planner")
 st.caption(
@@ -61,10 +69,7 @@ result = st.session_state.result
 
 if result and "__interrupt__" in result:
     payload = result["__interrupt__"][0].value
-    # Streamlit's markdown renderer treats "$...$" as LaTeX - escape literal dollar signs
-    # so budget amounts don't get parsed as math.
-    escaped_reason = (payload["reason"] or "").replace("$", "\\$")
-    st.warning(f"Human review needed: {escaped_reason}")
+    st.warning(f"Human review needed: {esc(payload['reason'] or '')}")
     choice = st.radio(
         "What would you like to do?",
         ["cut_activities", "increase_budget", "proceed_anyway"],
@@ -89,7 +94,12 @@ elif result and result.get("final_itinerary"):
     m3.metric("Travelers", f"{adults} adult(s), {kids} kid(s)")
 
     if itinerary.get("trimmed_activities"):
-        st.info(f"Trimmed to fit budget: {', '.join(itinerary['trimmed_activities'])}")
+        st.info(f"Trimmed to fit budget: {esc(', '.join(itinerary['trimmed_activities']))}")
+    if itinerary.get("still_over_budget"):
+        st.warning(
+            "Still over budget after trimming down to one activity per day. "
+            "Consider raising the budget or shortening the trip."
+        )
 
     scoring_report = result.get("scoring_report", {})
 
@@ -99,10 +109,10 @@ elif result and result.get("final_itinerary"):
         for act in day.get("activities", []):
             tag = "Hidden gem" if act.get("is_hidden_gem") else "Mainstream"
             st.write(
-                f"**{act['name']}** ({act.get('category')}, {act.get('time_of_day')}) "
+                f"**{esc(act['name'])}** ({act.get('category')}, {act.get('time_of_day')}) "
                 f"— ${act.get('estimated_cost_usd', 0)} — {tag}"
             )
-            st.caption(act.get("description", ""))
+            st.caption(esc(act.get("description", "")))
 
         day_scores = scoring_report.get(day_key)
         if day_scores:
@@ -126,8 +136,8 @@ elif result and result.get("final_itinerary"):
         columns=["Field", "Value"],
     ).set_index("Field")
     st.table(flight_df)
-    st.caption(flight.get("summary", ""))
+    st.caption(esc(flight.get("summary", "")))
 
     with st.expander("Raw agent findings (research & local-insight)"):
-        st.write("**Research agent:**", result.get("research_findings", {}).get("summary", "N/A"))
-        st.write("**Local-insight agent:**", result.get("local_insights", {}).get("summary", "N/A"))
+        st.write("**Research agent:**", esc(result.get("research_findings", {}).get("summary", "N/A")))
+        st.write("**Local-insight agent:**", esc(result.get("local_insights", {}).get("summary", "N/A")))

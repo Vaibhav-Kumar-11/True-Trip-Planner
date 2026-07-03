@@ -20,15 +20,31 @@ def human_review_node(state: TripPlanState) -> dict:
     return {"user_decision": decision}
 
 
-def _trim_lowest_scored(itinerary: dict, scoring_report: dict) -> dict:
+MIN_ACTIVITIES_PER_DAY = 1
+
+
+def _trim_to_budget(itinerary: dict, scoring_report: dict, budget_cap: float) -> dict:
+    """Drop the lowest-scored activities one at a time until the itinerary fits the
+    activities budget (or until every day is down to MIN_ACTIVITIES_PER_DAY, whichever
+    comes first - a day is never emptied out entirely)."""
     days = itinerary.get("days", [])
     all_activities = [(day["day"], act) for day in days for act in day.get("activities", [])]
     all_activities.sort(
         key=lambda pair: scoring_report.get(f"Day {pair[0]}", {}).get(pair[1]["name"], {}).get("overall", 0)
     )
 
-    num_to_drop = max(1, len(all_activities) // 5)  # drop the lowest-scored ~20%
-    names_to_drop = {act["name"] for _, act in all_activities[:num_to_drop]}
+    total = sum(act.get("estimated_cost_usd", 0) for _, act in all_activities)
+    remaining_per_day = {day["day"]: len(day.get("activities", [])) for day in days}
+    names_to_drop = set()
+
+    for day_num, act in all_activities:
+        if total <= budget_cap:
+            break
+        if remaining_per_day[day_num] <= MIN_ACTIVITIES_PER_DAY:
+            continue
+        names_to_drop.add(act["name"])
+        total -= act.get("estimated_cost_usd", 0)
+        remaining_per_day[day_num] -= 1
 
     for day in days:
         day["activities"] = [a for a in day["activities"] if a["name"] not in names_to_drop]
@@ -43,6 +59,7 @@ def _trim_lowest_scored(itinerary: dict, scoring_report: dict) -> dict:
             "days": days,
             "total_estimated_activity_cost": round(new_total, 2),
             "trimmed_activities": sorted(names_to_drop),
+            "still_over_budget": new_total > budget_cap,
         },
         "scoring_report": trimmed_scoring_report,
     }
@@ -54,7 +71,8 @@ def finalize_node(state: TripPlanState) -> dict:
     scoring_report = state.get("scoring_report", {})
 
     if state.get("needs_user_review") and decision == "cut_activities":
-        trimmed = _trim_lowest_scored(itinerary, scoring_report)
+        budget_cap = state.get("budget_breakdown", {}).get("activities", 0)
+        trimmed = _trim_to_budget(itinerary, scoring_report, budget_cap)
         itinerary = trimmed["itinerary"]
         scoring_report = trimmed["scoring_report"]
 

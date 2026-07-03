@@ -1,5 +1,6 @@
-"""Runs the planner end-to-end across 6 configurations (3 destinations x solo/family)
-to confirm the system generalizes rather than being hardcoded to one demo case."""
+"""Runs the planner end-to-end across a 4 destinations x 3 traveler-composition grid
+(12 configurations total) to confirm the system generalizes rather than being
+hardcoded to one demo case."""
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -7,18 +8,26 @@ load_dotenv()
 from langgraph.types import Command
 from graph import build_graph
 
-CONFIGS = [
-    ("Bali", "scenic", 2, 0, 1500),
-    ("Bali", "scenic", 2, 2, 2500),
-    ("Goa", "nightlife", 2, 1, 1600),
-    ("Goa", "scenic", 1, 0, 900),
-    ("Bangkok", "shopping", 2, 0, 1200),
-    ("Bangkok", "nightlife", 2, 2, 2200),
-    ("Kyoto", "culture", 2, 0, 1800),
-    ("Kyoto", "culture", 2, 1, 2200),
-    ("Rome", "culture", 2, 0, 2000),
-    ("Rome", "shopping", 2, 2, 3200),
+DESTINATIONS = {
+    # destination: (interest tag, [budget for solo, couple+1 kid, family of 4])
+    "Bali": ("scenic", [900, 1800, 2500]),
+    "Goa": ("nightlife", [700, 1500, 2200]),
+    "Bangkok": ("shopping", [800, 1600, 2200]),
+    "Kyoto": ("culture", [1000, 2000, 3000]),
+}
+TRAVELER_COMPOSITIONS = [
+    ("solo", 1, 0),
+    ("couple + 1 kid", 2, 1),
+    ("family of 4", 2, 2),
 ]
+
+
+def build_configs():
+    configs = []
+    for destination, (tag, budgets) in DESTINATIONS.items():
+        for (label, adults, kids), budget in zip(TRAVELER_COMPOSITIONS, budgets):
+            configs.append((destination, tag, adults, kids, budget, label))
+    return configs
 
 
 def run_config(graph, destination, tag, adults, kids, budget):
@@ -41,22 +50,27 @@ def run_config(graph, destination, tag, adults, kids, budget):
 
 def main():
     graph = build_graph()
+    configs = build_configs()
     passed = 0
 
-    for destination, tag, adults, kids, budget in CONFIGS:
-        label = f"{destination} | adults={adults} kids={kids} budget=${budget}"
+    for destination, tag, adults, kids, budget, comp_label in configs:
+        label = f"{destination} ({comp_label}) | adults={adults} kids={kids} budget=${budget}"
         print(f"\n=== {label} ===")
         try:
             result = run_config(graph, destination, tag, adults, kids, budget)
             final = result.get("final_itinerary", {})
             days = len(final.get("days", []))
             activities = sum(len(d.get("activities", [])) for d in final.get("days", []))
-            print(f"OK: {days} days, {activities} activities, cost=${final.get('total_estimated_activity_cost')}")
+            over_budget = final.get("still_over_budget", False)
+            print(
+                f"OK: {days} days, {activities} activities, "
+                f"cost=${final.get('total_estimated_activity_cost')}, still_over_budget={over_budget}"
+            )
             passed += 1
         except Exception as e:
             print(f"FAILED: {e}")
 
-    print(f"\n{passed}/{len(CONFIGS)} configurations passed")
+    print(f"\n{passed}/{len(configs)} configurations passed")
 
 
 if __name__ == "__main__":

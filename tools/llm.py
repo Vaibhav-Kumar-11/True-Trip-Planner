@@ -23,8 +23,12 @@ def _invoke_with_backoff(llm: ChatGroq, prompt: str):
         except RateLimitError as e:
             if attempt == MAX_RATE_LIMIT_ATTEMPTS - 1:
                 raise
-            match = re.search(r"try again in (\d+(?:\.\d+)?)s", str(e))
-            wait_seconds = float(match.group(1)) + 1 if match else 5 * (attempt + 1)
+            match = re.search(r"try again in (?:(\d+)m)?(\d+(?:\.\d+)?)s", str(e))
+            if match:
+                minutes = float(match.group(1)) if match.group(1) else 0
+                wait_seconds = minutes * 60 + float(match.group(2)) + 1
+            else:
+                wait_seconds = 5 * (attempt + 1)
             time.sleep(wait_seconds)
 
 
