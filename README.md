@@ -109,6 +109,17 @@ Run the dashboard:
 streamlit run app.py
 ```
 
+## Tests
+
+`tests/` covers the pure-logic parts that don't require live API calls: the budget
+split, the 4-dimension scoring formulas, the budget-trim algorithm, and the LLM
+JSON-parsing fallback.
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
 ## Validation
 
 `validate.py` runs the full pipeline end-to-end across 12 configurations — 4
