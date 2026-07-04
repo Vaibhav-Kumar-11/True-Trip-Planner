@@ -86,6 +86,7 @@ the system.
 - **Groq** (Llama 3.3 70B) — LLM inference
 - **Tavily** — web search API for the three search-based agents
 - **Streamlit** — dashboard UI
+- **Python**
 
 ## Setup
 
