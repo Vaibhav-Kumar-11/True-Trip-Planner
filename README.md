@@ -137,6 +137,13 @@ of just working for the one destination I happened to test with first:
 python validate.py
 ```
 
+Beyond a pass count, it also reports how many configurations actually exceeded the
+15% budget threshold and required human review, and how many of those were
+successfully corrected by trimming. That's read straight off `needs_user_review` and
+`still_over_budget`, both of which the aggregator and finalize node already compute
+to make their own routing decision, so this isn't a new measurement bolted on for
+the demo.
+
 ## Known limitations and what it would take to fix them
 
 I deliberately left these out of scope given the timeline. Each row is something I
