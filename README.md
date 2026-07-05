@@ -144,6 +144,9 @@ successfully corrected by trimming. That's read straight off `needs_user_review`
 to make their own routing decision, so this isn't a new measurement bolted on for
 the demo.
 
+Last run: 12/12 configurations passed, 3/12 exceeded the budget threshold and
+triggered human review, and 3/3 of those were automatically corrected by trimming.
+
 ## Known limitations and what it would take to fix them
 
 I deliberately left these out of scope given the timeline. Each row is something I
